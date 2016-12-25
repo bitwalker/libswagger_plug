@@ -1,0 +1,253 @@
+swagger:  "2.0"
+
+info:
+  version:      "0.1"
+  title:        Example Database
+  description:  A simple example service
+host:     localhost:7000
+basePath: /api/v1
+schemes:
+  - http
+consumes:
+  - application/json
+produces:
+  - application/json
+
+securityDefinitions:
+  basicAuth:
+    type: basic
+    description: Simple auth
+  apiKeyHeader:
+    type: apiKey
+    description: API key in a header
+    in: header
+    name: Authorization
+  apiKeyQuery:
+    type: apiKey
+    description: API key in a query param
+    in: query
+    name: api-key
+
+paths:
+  /{solution_id}/users:
+    parameters:
+      - name:         solution_id
+        description:  The solution id to fetch users for
+        in:           path
+        required:     true
+        type:         string
+        pattern:      ^[a-zA-Z0-9]+$
+    post:
+      operationId: createUser
+      summary: Create a user
+      description: Create a user
+      parameters:
+        - name: user
+          description: The user details
+          in: body
+          required: true
+          schema:
+            $ref: "#/definitions/User"
+      responses:
+        200:
+          description: OK
+          schema:
+            type: object
+            items:
+              $ref: "#/definitions/User"
+    get:
+      operationId:  listUsers
+      summary:      List Users
+      description:  List all users
+      responses:
+        200:
+          description: List of users
+          schema:
+            description: List of users
+            type:   array
+            items:
+              $ref: "#/definitions/User"
+        default:
+          description:  error
+          schema:
+           $ref: "#/definitions/ErrorResponse"
+  /{solution_id}/users/{email}:
+    parameters:
+      - name:         solution_id
+        description:  The solution id to fetch users for
+        in:           path
+        required:     true
+        type:         string
+        pattern:      ^[a-zA-Z0-9]+$
+      - name:         email
+        description:  The users email address
+        in:           path
+        required:     true
+        type:         string
+        pattern:      ^.+@.+$
+    post:
+      operationId: updateUserJson
+      summary: Update a user
+      description: Update a user by email
+      parameters:
+        - name: name
+          description: The user name
+          in: formdata
+          type: string
+          required: true
+        - name: email
+          description: The user email
+          in: formdata
+          type: string
+          pattern: ^.+@.+$
+      produces:
+        - application/json
+      consumes:
+        - application/json
+      responses:
+        200:
+          description: Updated user
+          type: object
+          items:
+            $ref: "#/definitions/User"
+    put:
+      operationId: updateUser
+      summary: Update a user
+      description: Update a user by email
+      parameters:
+        - name: name
+          description: The user name
+          in: formdata
+          type: string
+          required: true
+        - name: email
+          description: The user email
+          in: formdata
+          type: string
+          pattern: ^.+@.+$
+          required: true
+      produces:
+        - application/json
+      consumes:
+        - application/x-www-form-urlencoded
+      responses:
+        200:
+          description: Updated user
+          type: object
+          items:
+            $ref: "#/definitions/User"
+  /{solution_id}/secured/basic/users:
+    parameters:
+      - name:         solution_id
+        description:  The solution id to fetch users for
+        in:           path
+        required:     true
+        type:         string
+        pattern:      ^[a-zA-Z0-9]+$
+    post:
+      operationId: createUserSecuredBasic
+      security:
+        - basicAuth: []
+      summary: Create a user
+      description: Create a user
+      parameters:
+        - name: user
+          description: The user details
+          in: body
+          required: true
+          schema:
+            $ref: "#/definitions/User"
+      responses:
+        200:
+          description: OK
+          schema:
+            type: object
+            items:
+              $ref: "#/definitions/User"
+  /{solution_id}/secured/apikey-header/users:
+    parameters:
+      - name:         solution_id
+        description:  The solution id to fetch users for
+        in:           path
+        required:     true
+        type:         string
+        pattern:      ^[a-zA-Z0-9]+$
+    post:
+      operationId: createUserSecuredApiKeyHeader
+      security:
+        - apiKeyHeader: []
+      summary: Create a user
+      description: Create a user
+      parameters:
+        - name: user
+          description: The user details
+          in: body
+          required: true
+          schema:
+            $ref: "#/definitions/User"
+      responses:
+        200:
+          description: OK
+          schema:
+            type: object
+            items:
+              $ref: "#/definitions/User"
+  /{solution_id}/secured/apikey-query/users:
+    parameters:
+      - name:         solution_id
+        description:  The solution id to fetch users for
+        in:           path
+        required:     true
+        type:         string
+        pattern:      ^[a-zA-Z0-9]+$
+    post:
+      operationId: createUserSecuredApiKeyQuery
+      security:
+        - apiKeyQuery: []
+      summary: Create a user
+      description: Create a user
+      parameters:
+        - name: user
+          description: The user details
+          in: body
+          required: true
+          schema:
+            $ref: "#/definitions/User"
+      responses:
+        200:
+          description: OK
+          schema:
+            type: object
+            items:
+              $ref: "#/definitions/User"
+
+
+################################################################################
+#                                 Definitions                                  #
+################################################################################
+
+definitions:
+  User:
+    type:             object
+    description:      An application user
+    properties:
+      name:
+        description:  The user name
+        type:         string
+      email:
+        description:  The user email
+        type:         string
+
+  ErrorResponse:
+    type: object
+    description: Error response
+    properties:
+      message:
+        type: string
+        description: Error message
+      code:
+        type: string
+        description: Error code
+      error:
+        type: [object, string]
+        description: Error details

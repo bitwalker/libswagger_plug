@@ -7,21 +7,26 @@ defmodule SwaggerPlug.Mixfile do
      elixir: "~> 1.3",
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
-     deps: deps()]
+     elixirc_paths: elixirc_paths(Mix.env),
+     deps: deps(),
+	 test_coverage: [tool: Coverex.Task, coveralls: true,
+       ignore_modules: [Swagger.Test.Handlers.UsersHandler]]]
   end
 
   def application do
-    [applications: [:logger, :poison, :plug, :fuse, :tesla],
+    [applications: [:logger, :poison, :plug, :tesla],
      mod: {Swagger.Plug.App, []}]
   end
 
   defp deps do
-    [{:libswagger, path: "../libswagger"},
-     {:poison, "~> 3.0"},
-     {:fuse, "~> 2.4"},
+    [{:libswagger, github: "bitwalker/libswagger"},
+     {:poison, "~> 3.0", override: true},
      {:tesla, "~> 0.5.2"},
-     {:hackney, "~> 1.6", optional: true},
      {:plug, "~> 1.3"},
-     {:cowboy, "~> 1.0", only: [:dev, :test]}]
+     {:cowboy, "~> 1.0", only: [:dev, :test]},
+     {:coverex, "~> 1.4", only: [:test]}]
   end
+
+  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(_),     do: ["lib"]
 end

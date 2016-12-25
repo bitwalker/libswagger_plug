@@ -1,0 +1,88 @@
+swagger:  "2.0"
+
+info:
+  version:      "0.1"
+  title:        Example Database
+  description:  A simple example service
+host:     localhost:7001
+basePath: /api/v1
+schemes:
+  - https
+consumes:
+  - application/json
+produces:
+  - application/json
+
+paths:
+  /{solution_id}/users:
+    parameters:
+      - name:         solution_id
+        description:  The solution id to fetch users for
+        in:           path
+        required:     true
+        type:         string
+        pattern:      ^[a-zA-Z0-9]+$
+    post:
+      operationId: createUser
+      summary: Create a user
+      description: Create a user
+      parameters:
+        - name: user
+          description: The user details
+          in: body
+          required: true
+          schema:
+            $ref: "#/definitions/User"
+      responses:
+        200:
+          description: OK
+          schema:
+            type: object
+            items:
+              $ref: "#/definitions/User"
+    get:
+      operationId:  listUsers
+      summary:      List Users
+      description:  List all users
+      responses:
+        200:
+          description: List of users
+          schema:
+            description: List of users
+            type:   array
+            items:
+              $ref: "#/definitions/User"
+        default:
+          description:  error
+          schema:
+            $ref: "#/definitions/ErrorResponse"
+
+################################################################################
+#                                 Definitions                                  #
+################################################################################
+
+definitions:
+  User:
+    type:             object
+    description:      An application user
+    properties:
+      name:
+        description:  The user name
+        type:         string
+      email:
+        description:  The user email
+        type:         string
+
+  ErrorResponse:
+    type: object
+    description: Error response
+    properties:
+      message:
+        type: string
+        description: Error message
+      code:
+        type: string
+        description: Error code
+      error:
+        type: [object, string]
+        description: Error details
