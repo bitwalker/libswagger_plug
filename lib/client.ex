@@ -115,15 +115,24 @@ defmodule Swagger.Client do
         end
     end
   end
+  # Special case for Bearer tokens
+  defp build_security(conn, %Security.ApiKey{id: "Bearer", in: :header, name: header_name}, _scopes, params) do
+    case get_val_in_header_or_params(conn, params, header_name) do
+      nil -> {:error, {:missing_security_header, header_name}}
+      val -> {:ok, %{headers: [{String.downcase(header_name), "Bearer " <> val}], query: []}}
+    end
+  end
+  # Special case for Token tokens
+  defp build_security(conn, %Security.ApiKey{id: "Token", in: :header, name: header_name}, _scopes, params) do
+    case get_val_in_header_or_params(conn, params, header_name) do
+      nil -> {:error, {:missing_security_header, header_name}}
+      val -> {:ok, %{headers: [{String.downcase(header_name), "Token " <> val}], query: []}}
+    end
+  end
   defp build_security(conn, %Security.ApiKey{in: :header, name: header_name}, _scopes, params) do
-    case get_req_header(conn, String.downcase(header_name)) do
-      [val] ->
-        {:ok, %{headers: [{String.downcase(header_name), val}], query: []}}
-      [] ->
-        case get_param_val(params, header_name) do
-          :error     -> {:error, {:missing_security_header, header_name}}
-          {:ok, val} -> {:ok, %{headers: [{String.downcase(header_name), val}], query: []}}
-        end
+    case get_val_in_header_or_params(conn, params, header_name) do
+      nil -> {:error, {:missing_security_header, header_name}}
+      val -> {:ok, %{headers: [{String.downcase(header_name), val}], query: []}}
     end
   end
   defp build_security(conn, %Security.ApiKey{in: :query, name: query_name}, _scopes, params) do
@@ -147,6 +156,17 @@ defmodule Swagger.Client do
     do: {:error, {:unsupported_security, id}}
   defp build_security(_conn, %Security.OAuth2AccessCode{id: id}, _scopes, _params),
     do: {:error, {:unsupported_security, id}}
+
+  defp get_val_in_header_or_params(conn, params, name) do
+    case get_req_header(conn, String.downcase(name)) do
+      [val] -> val
+      [] ->
+        case get_param_val(params, name) do
+          :error -> nil
+          {:ok, val} -> val
+        end
+    end
+  end
 
   defp build_path(global_schemes, operation_schemes, base_url, path, params) do
     reified_path = params
