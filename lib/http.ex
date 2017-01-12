@@ -6,8 +6,8 @@ defmodule Swagger.Client.HTTP do
   def create() do
     middleware = [
       cond do
-        debug_mode? -> {Tesla.Middleware.Logger, []}
-        :else       -> {Tesla.Middleware.DebugLogger, []}
+        debug_mode?() -> {Tesla.Middleware.Logger, []}
+        :else         -> {Tesla.Middleware.DebugLogger, []}
       end,
       # {Tesla.Middleware.Fuse, []}
     ]

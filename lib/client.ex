@@ -7,7 +7,7 @@ defmodule Swagger.Client do
   alias Swagger.Schema
   alias Swagger.Schema.{Endpoint, Operation, Security}
 
-  def request(%Conn{} = conn, %Schema{} = schema, %Endpoint{} = endpoint, %Operation{} = operation, params) do
+  def request(%Conn{} = conn, %Schema{} = schema, %Endpoint{} = endpoint, %Operation{} = operation, params, options \\ []) do
     [content_type] = get_req_header(conn, "content-type")
 
     with {:ok, security}     <- get_security(conn, schema, operation, params),
@@ -17,20 +17,34 @@ defmodule Swagger.Client do
          {:ok, headers}      <- build_headers(conn.req_headers, security.headers, content_type, params),
          {:ok, query}        <- build_query(security.query, params),
          {:ok, body, _conn}  <- build_body(conn, schema, operation, content_type, target_content_type, params) do
-      dispatch(%{
-        endpoint: endpoint,
-        operation: operation,
-        method: String.to_atom(String.downcase(operation.name)),
-        path: path,
-        content_type: target_content_type,
-        headers: headers,
-        query: query,
-        body: body})
+      req = %{endpoint: endpoint,
+              operation: operation,
+              method: String.to_atom(String.downcase(operation.name)),
+              path: path,
+              content_type: target_content_type,
+              headers: headers,
+              query: query,
+              body: body}
+      case Keyword.get(options, :preflight) do
+        nil -> 
+          dispatch(conn, req)
+        fun when is_function(fun, 2) ->
+          case fun.(conn, req) do
+            {:ok, %{state: state} = conn, new_req} when state == :sent ->
+              {:ok, conn, new_req}
+            {:ok, conn, new_req} ->
+              dispatch(conn, new_req)
+            {:error, reason} ->
+              {:error, conn, reason}
+          end
+        other ->
+          raise "invalid preflight function, expected /2, got: #{inspect other}"
+      end
     end
   end
 
-  defp dispatch(%{body: body, content_type: content_type} = req) do
-    client = Swagger.Client.HTTP.create()
+  defp dispatch(conn, %{body: body, content_type: content_type} = req) do
+    client = HTTP.create()
     client_opts = [
       method: req.method,
       url: req.path,
@@ -39,13 +53,13 @@ defmodule Swagger.Client do
       body: body
     ]
     try do
-      response = Swagger.Client.HTTP.request(client, client_opts)
+      response = HTTP.request(client, client_opts)
       req = Map.put(req, :response, response)
       case content_type do
         "application/json" ->
           response_schema = Map.get(req.operation.responses, response.status, Map.get(req.operation.responses, :default))
           case response_schema do
-            nil -> req
+            nil -> {:ok, conn, req}
             _ ->
               valid? = ExJsonSchema.Validator.validate(response_schema, Poison.decode!(response.body))
               unless valid? == :ok do
@@ -53,14 +67,14 @@ defmodule Swagger.Client do
                   "is not valid according to the defined schema!\n" <>
                   "   #{inspect valid?}"
               end
-              req
+              {:ok, conn, req}
           end
         _ ->
-          req
+          {:ok, conn, req}
       end
     rescue
       e in [Tesla.Error] ->
-        {:error, {:remote_request_error, e.message}}
+        {:error, conn, {:remote_request_error, e.message}}
     end
   end
 

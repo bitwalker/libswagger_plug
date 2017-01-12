@@ -24,7 +24,7 @@ defmodule Swagger.Plug.ReverseProxy do
     options
   end
 
-  def call(conn, _opts) do
+  def call(conn, opts) do
     schema = conn.private[:libswagger_schema]
     unless schema do
       raise "the ReverseProxy plug requires that the LoadSchema plug comes before it"
@@ -45,24 +45,26 @@ defmodule Swagger.Plug.ReverseProxy do
       {:error, reason} ->
         raise "error occurred when extracting parameters for reverse proxy: #{inspect reason}"
       extracted when is_map(extracted) ->
-        execute_request(conn, schema, endpoint, operation, extracted)
+        execute_request(conn, schema, endpoint, operation, extracted, opts)
     end
   end
 
-  defp execute_request(conn, schema, endpoint, operation, params) do
-    case Swagger.Client.request(conn, schema, endpoint, operation, params) do
-      {:error, {:client_error, reason}} ->
+  defp execute_request(conn, schema, endpoint, operation, params, options) do
+    case Swagger.Client.request(conn, schema, endpoint, operation, params, options) do
+      {:error, conn, {:client_error, reason}} ->
         Logger.error "[libswagger_plug] client error: #{reason}"
         conn
         |> put_resp_content_type("text/plain")
         |> send_resp(500, "server error")
         |> halt()
-      {:error, reason} ->
+      {:error, conn, reason} ->
         conn
         |> put_resp_content_type("text/plain")
         |> send_resp(400, "schema violation: #{inspect reason}")
         |> halt()
-      %{response: resp} = req ->
+      {:ok, %{state: state} = conn, _req} when state == :sent ->
+        halt(conn)
+      {:ok, conn, %{response: resp} = req} ->
         conn
         |> put_resp_content_type(req.content_type)
         |> send_resp(resp.status, resp.body)
