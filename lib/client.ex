@@ -27,13 +27,13 @@ defmodule Swagger.Client do
               body: body}
       case Keyword.get(options, :preflight) do
         nil -> 
-          dispatch(conn, req)
+          dispatch(conn, req, options)
         fun when is_function(fun, 2) ->
           case fun.(conn, req) do
             {:ok, %{state: state} = conn, new_req} when state == :sent ->
               {:ok, conn, new_req}
             {:ok, conn, new_req} ->
-              dispatch(conn, new_req)
+              dispatch(conn, new_req, options)
             {:error, reason} ->
               {:error, conn, reason}
           end
@@ -43,7 +43,7 @@ defmodule Swagger.Client do
     end
   end
 
-  defp dispatch(conn, %{body: body, content_type: content_type} = req) do
+  defp dispatch(conn, %{body: body, content_type: content_type} = req, opts) do
     client = HTTP.create()
     client_opts = [
       method: req.method,
@@ -57,7 +57,10 @@ defmodule Swagger.Client do
       req = Map.put(req, :response, response)
       case content_type do
         "application/json" ->
-          response_schema = Map.get(req.operation.responses, response.status, Map.get(req.operation.responses, :default))
+          response_schema = case Keyword.get(opts, :validate?, false) do
+            true  -> Map.get(req.operation.responses, response.status, Map.get(req.operation.responses, :default))
+            false -> nil
+          end
           case response_schema do
             nil -> {:ok, conn, req}
             _ ->
