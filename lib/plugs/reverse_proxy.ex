@@ -57,6 +57,11 @@ defmodule Swagger.Plug.ReverseProxy do
         |> put_resp_content_type("text/plain")
         |> send_resp(500, "server error")
         |> halt()
+      {:error, conn, {:remote_request_error, _}} ->
+        conn
+        |> put_resp_content_type("text/plain")
+        |> send_resp(500, "server error")
+        |> halt()
       {:error, conn, reason} ->
         conn
         |> put_resp_content_type("text/plain")
