@@ -45,13 +45,16 @@ defmodule Swagger.Client do
 
   defp dispatch(conn, %{body: body, content_type: content_type} = req, opts) do
     client = HTTP.create()
-    client_opts = [
+    base_opts = [
       method: req.method,
       url: req.path,
       query: req.query,
       headers: req.headers,
-      body: body
     ]
+    client_opts = case req.method do
+      method when method in [:get, :head, :options, :trace] -> base_opts
+      _ -> [{:body, body} | base_opts]
+    end
     try do
       response = HTTP.request(client, client_opts)
       req = Map.put(req, :response, response)
