@@ -27,7 +27,7 @@ paths:
       summary: Create a user
       description: Create a user
       parameters:
-        - name: user
+        - name: body
           description: The user details
           in: body
           required: true

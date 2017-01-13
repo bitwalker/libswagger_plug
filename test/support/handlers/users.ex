@@ -68,8 +68,8 @@ defmodule Swagger.Test.Handlers.UsersHandler do
   defp create_user(req) do
     {:ok, body, req} = :cowboy_req.body(req)
     params = Poison.decode!(body)
-    :ets.insert(:libswagger_plug_users, {params["user"]["email"], params["user"]})
-    :cowboy_req.reply(200, [{"content-type", "application/json"}], Poison.encode!(params["user"]), req)
+    :ets.insert(:libswagger_plug_users, {params["email"], params})
+    :cowboy_req.reply(200, [{"content-type", "application/json"}], Poison.encode!(params), req)
   end
 
   defp update_user(_email, req, :json) do

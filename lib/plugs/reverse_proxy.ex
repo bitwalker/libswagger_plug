@@ -78,10 +78,13 @@ defmodule Swagger.Plug.ReverseProxy do
   end
 
   defp do_extract_parameters(parameters, values) do
-    default = %{header: %{}, query: %{}, path: %{}, formdata: %{}, body: %{}}
+    default = %{header: %{}, query: %{}, path: %{}, formdata: %{}, body: nil}
     Enum.reduce(parameters, {:ok, default}, fn
       _, {:error, _} = err ->
         err
+      {_name, %Parameter.BodyParam{schema: %{"properties" => props}}}, {:ok, acc} ->
+        body = Enum.reduce(props, %{}, fn {name, _}, acc -> Map.put(acc, name, Map.get(values, name)) end)
+        {:ok, put_in(acc, [:body], body)}
       {name, %{__struct__: type, required?: required?} = p}, {:ok, acc} ->
         case Map.get(values, name) do
           nil when required? -> {:error, {:missing_required_parameter, name}}

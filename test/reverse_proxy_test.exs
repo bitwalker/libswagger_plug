@@ -48,9 +48,8 @@ defmodule SwaggerPlugReverseProxyTest do
         __schema: "db.yaml",
         __operation: "createUser",
         solution_id: "foobar",
-        user: %{
-          name: "Test User", email: "test@example.com"
-        }
+        name: "Test User", 
+        email: "test@example.com"
       }
       conn = conn(:post, "/users", Poison.encode!(body))
             |> put_req_header("content-type", "application/json")
@@ -59,7 +58,7 @@ defmodule SwaggerPlugReverseProxyTest do
       conn = Swagger.Plug.ReverseProxy.call(conn, @proxy_opts)
 
       assert conn.state == :sent
-      assert {conn.status, conn.resp_body} == {200, Poison.encode!(body.user)}
+      assert {conn.status, conn.resp_body} == {200, Poison.encode!(%{"name" => body.name, "email" => body.email})}
     end
 
     test "can execute a simple reverse proxy (https)" do
@@ -67,9 +66,8 @@ defmodule SwaggerPlugReverseProxyTest do
         __schema: "db_secure.yaml",
         __operation: "createUser",
         solution_id: "foobar",
-        user: %{
-          name: "Test User", email: "test@example.com"
-        }
+        name: "Test User", 
+        email: "test@example.com"
       }
       conn = conn(:post, "/users", Poison.encode!(body))
             |> put_req_header("content-type", "application/json")
@@ -78,7 +76,7 @@ defmodule SwaggerPlugReverseProxyTest do
       conn = Swagger.Plug.ReverseProxy.call(conn, @proxy_opts)
 
       assert conn.state == :sent
-      assert {conn.status, conn.resp_body} == {200, Poison.encode!(body.user)}
+      assert {conn.status, conn.resp_body} == {200, Poison.encode!(%{"name" => body.name, "email" => body.email})}
     end
   end
 
@@ -89,9 +87,8 @@ defmodule SwaggerPlugReverseProxyTest do
         __schema: "db.yaml",
         __operation: "createUserSecuredBasic",
         solution_id: "foobar",
-        user: %{
-          name: "Test User", email: "test@example.com"
-        }
+        name: "Test User", 
+        email: "test@example.com"
       }
       conn = conn(:post, "/users", Poison.encode!(body))
              |> put_req_header("authorization", "Basic " <> Base.encode64("user:pass"))
@@ -101,7 +98,7 @@ defmodule SwaggerPlugReverseProxyTest do
       conn = Swagger.Plug.ReverseProxy.call(conn, @proxy_opts)
 
       assert conn.state == :sent
-      assert {conn.status, conn.resp_body} == {200, Poison.encode!(body.user)}
+      assert {conn.status, conn.resp_body} == {200, Poison.encode!(%{"name" => body.name, "email" => body.email})}
     end
 
     test "can authenticate to an api key-based auth (header) secured endpoint" do
@@ -109,9 +106,8 @@ defmodule SwaggerPlugReverseProxyTest do
         __schema: "db.yaml",
         __operation: "createUserSecuredApiKeyHeader",
         solution_id: "foobar",
-        user: %{
-          name: "Test User", email: "test@example.com"
-        }
+        name: "Test User", 
+        email: "test@example.com"
       }
       conn = conn(:post, "/users", Poison.encode!(body))
              |> put_req_header("authorization", "letmein")
@@ -121,7 +117,7 @@ defmodule SwaggerPlugReverseProxyTest do
       conn = Swagger.Plug.ReverseProxy.call(conn, @proxy_opts)
 
       assert conn.state == :sent
-      assert {conn.status, conn.resp_body} == {200, Poison.encode!(body.user)}
+      assert {conn.status, conn.resp_body} == {200, Poison.encode!(%{"name" => body.name, "email" => body.email})}
     end
 
     test "can authenticate to an api key-based auth (query) secured endpoint" do
@@ -129,9 +125,8 @@ defmodule SwaggerPlugReverseProxyTest do
         __schema: "db.yaml",
         __operation: "createUserSecuredApiKeyQuery",
         solution_id: "foobar",
-        user: %{
-          name: "Test User", email: "test@example.com"
-        }
+        name: "Test User", 
+        email: "test@example.com"
       }
       conn = conn(:post, "/users?api-key=letmein", Poison.encode!(body))
              |> put_req_header("content-type", "application/json")
@@ -140,7 +135,7 @@ defmodule SwaggerPlugReverseProxyTest do
       conn = Swagger.Plug.ReverseProxy.call(conn, @proxy_opts)
 
       assert conn.state == :sent
-      assert {conn.status, conn.resp_body} == {200, Poison.encode!(body.user)}
+      assert {conn.status, conn.resp_body} == {200, Poison.encode!(%{"name" => body.name, "email" => body.email})}
     end
   end
 

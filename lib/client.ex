@@ -187,6 +187,7 @@ defmodule Swagger.Client do
 
   defp build_path(global_schemes, operation_schemes, base_url, path, params) do
     reified_path = params
+      |> Enum.reject(fn {:body, _} -> true; _ -> false end)
       |> Enum.flat_map(fn {_type, vals} -> Enum.into(vals, []) end)
       |> Enum.reduce(base_url <> path, fn
         _, {:error, _} = err ->
@@ -272,11 +273,14 @@ defmodule Swagger.Client do
   end
   defp do_build_body(conn, _schema, _operation, _content_type, target_content_type, params, body) when body in [nil, ""] do
     # body has already been read
-    body = params
-      |> Enum.filter(fn {type, _} -> type in [:body, :formdata] end)
-      |> Enum.flat_map(fn {_type, vals} -> Enum.into(vals, []) end)
-      |> Enum.into(%{})
-    case serialize(target_content_type, body) do
+    body = case params.body do
+      nil ->
+        # the body parameter wasn't set, so we'll look for formdata instead
+        serialize(target_content_type, params.formdata)
+      body_param ->
+        serialize(target_content_type, body_param)
+    end
+    case body do
       {:ok, serialized} -> {:ok, serialized, conn}
       {:error, _} = err -> err
     end
