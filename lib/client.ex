@@ -44,19 +44,15 @@ defmodule Swagger.Client do
   end
 
   defp dispatch(conn, %{body: body, content_type: content_type} = req, opts) do
-    client = HTTP.create()
-    base_opts = [
-      method: req.method,
-      url: req.path,
-      query: req.query,
-      headers: req.headers,
-    ]
-    client_opts = case req.method do
-      method when method in [:get, :head, :options, :trace] -> base_opts
-      _ -> [{:body, body} | base_opts]
+    client = HTTP.create(req.path)
+    |> Maxwell.Conn.put_req_header(req.headers)
+    |> Maxwell.Conn.put_query_string(req.query)
+    client = case req.method do
+      method when method in [:get, :head, :options, :trace] -> client
+      _ -> Maxwell.Conn.put_req_body(client, body)
     end
     try do
-      response = HTTP.request(client, client_opts)
+      response = HTTP.request(req.method, client)
       req = Map.put(req, :response, response)
       case content_type do
         "application/json" ->
@@ -79,7 +75,7 @@ defmodule Swagger.Client do
           {:ok, conn, req}
       end
     rescue
-      e in [Tesla.Error] ->
+      e in [Maxwell.Error] ->
         {:error, conn, {:remote_request_error, e.message}}
     end
   end

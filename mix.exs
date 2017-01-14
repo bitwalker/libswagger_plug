@@ -14,14 +14,14 @@ defmodule SwaggerPlug.Mixfile do
   end
 
   def application do
-    [applications: [:logger, :poison, :plug, :tesla],
+    [applications: [:logger, :poison, :plug, :maxwell],
      mod: {Swagger.Plug.App, []}]
   end
 
   defp deps do
     [{:libswagger, github: "bitwalker/libswagger"},
      {:poison, "~> 3.0", override: true},
-     {:tesla, "~> 0.5.2"},
+     {:maxwell, github: "bitwalker/maxwell"},
      {:plug, "~> 1.3"},
      {:cowboy, "~> 1.0", only: [:dev, :test]},
      {:coverex, "~> 1.4", only: [:test]}]

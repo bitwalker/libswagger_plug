@@ -1,16 +1,19 @@
 defmodule Swagger.Client.HTTP do
-  use Tesla
+  use Maxwell.Builder
 
-  defp debug_mode?, do: Application.get_env(:libswagger_plug, :debug, false)
+  @maxwell_default_adapter Application.get_env(:maxwell, :default_adapter)
+  @http_adapter @maxwell_default_adapter || Application.get_env(:libswagger_plug, :http_adapter, Maxwell.Adapter.Httpc)
 
-  def create() do
-    middleware = [
-      cond do
-        debug_mode?() -> {Tesla.Middleware.Logger, []}
-        :else         -> {Tesla.Middleware.DebugLogger, []}
-      end,
-      # {Tesla.Middleware.Fuse, []}
-    ]
-    Tesla.build_client(middleware)
+  middleware Maxwell.Middleware.Logger, log_level: :debug
+  middleware Maxwell.Middleware.Opts, Application.get_env(:libswagger_plug, :http_adapter_opts, [])
+
+  adapter @http_adapter
+
+  def create(url) do
+    Maxwell.Conn.new(url)
+  end
+
+  def request(method, client) when is_atom(method) do
+    apply(__MODULE__, method, [client])
   end
 end
