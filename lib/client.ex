@@ -51,32 +51,32 @@ defmodule Swagger.Client do
       method when method in [:get, :head, :options, :trace] -> client
       _ -> Maxwell.Conn.put_req_body(client, body)
     end
-    try do
-      response = HTTP.request(req.method, client)
-      req = Map.put(req, :response, response)
-      case content_type do
-        "application/json" ->
-          response_schema = case Keyword.get(opts, :validate?, false) do
-            true  -> Map.get(req.operation.responses, response.status, Map.get(req.operation.responses, :default))
-            false -> nil
-          end
-          case response_schema do
-            nil -> {:ok, conn, req}
-            _ ->
-              valid? = ExJsonSchema.Validator.validate(response_schema, Poison.decode!(response.body))
-              unless valid? == :ok do
-                Logger.warn "[libswagger] response received for #{req.method} #{req.path} " <>
-                  "is not valid according to the defined schema!\n" <>
-                  "   #{inspect valid?}"
-              end
-              {:ok, conn, req}
-          end
-        _ ->
-          {:ok, conn, req}
-      end
-    rescue
-      e in [Maxwell.Error] ->
-        {:error, conn, {:remote_request_error, e.message}}
+    case HTTP.request(req.method, client) do
+      {:error, reason, _client} ->
+        {:error, conn, {:remote_request_error, reason}}
+      {:ok, response} ->
+        response = Map.put(response, :resp_body, Maxwell.Conn.get_resp_body(response))
+        req = Map.put(req, :response, conn)
+        case content_type do
+          "application/json" ->
+            response_schema = case Keyword.get(opts, :validate?, false) do
+              true  -> Map.get(req.operation.responses, response.status, Map.get(req.operation.responses, :default))
+              false -> nil
+            end
+            case response_schema do
+              nil -> {:ok, conn, req}
+              _ ->
+                valid? = ExJsonSchema.Validator.validate(response_schema, Poison.decode!(response.resp_body))
+                unless valid? == :ok do
+                  Logger.warn "[libswagger] response received for #{req.method} #{req.path} " <>
+                    "is not valid according to the defined schema!\n" <>
+                    "   #{inspect valid?}"
+                end
+                {:ok, conn, req}
+            end
+          _ ->
+            {:ok, conn, req}
+        end
     end
   end
 
