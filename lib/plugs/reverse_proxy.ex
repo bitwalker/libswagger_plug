@@ -72,7 +72,7 @@ defmodule Swagger.Plug.ReverseProxy do
       {:ok, conn, %{response: resp} = req} ->
         conn
         |> put_resp_content_type(req.content_type)
-        |> send_resp(resp.status, resp.body)
+        |> send_resp(resp.status, resp.resp_body || "")
     end
   end
 

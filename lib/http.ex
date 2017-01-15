@@ -12,8 +12,14 @@ defmodule Swagger.Client.HTTP do
 
   adapter @http_adapter
 
-  def create(url) do
-    Maxwell.Conn.new(url)
+  def create(req) do
+    conn = new(req.path)
+	|> put_req_header(req.headers)
+	|> put_query_string(req.query)
+	case req.method do
+	  method when method in [:get, :head, :options, :trace] -> conn
+	  _ -> put_req_body(conn, req.body)
+	end
   end
 
   def request(method, conn) when is_atom(method) do

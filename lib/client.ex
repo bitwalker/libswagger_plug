@@ -43,20 +43,14 @@ defmodule Swagger.Client do
     end
   end
 
-  defp dispatch(conn, %{body: body, content_type: content_type} = req, opts) do
-    client = HTTP.create(req.path)
-    |> Maxwell.Conn.put_req_header(req.headers)
-    |> Maxwell.Conn.put_query_string(req.query)
-    client = case req.method do
-      method when method in [:get, :head, :options, :trace] -> client
-      _ -> Maxwell.Conn.put_req_body(client, body)
-    end
+  defp dispatch(conn, %{content_type: content_type} = req, opts) do
+    client = HTTP.create(req)
     case HTTP.request(req.method, client) do
       {:error, reason, _client} ->
         {:error, conn, {:remote_request_error, reason}}
       {:ok, response} ->
         response = Map.put(response, :resp_body, Maxwell.Conn.get_resp_body(response))
-        req = Map.put(req, :response, conn)
+        req = Map.put(req, :response, response)
         case content_type do
           "application/json" ->
             response_schema = case Keyword.get(opts, :validate?, false) do
@@ -230,32 +224,32 @@ defmodule Swagger.Client do
   end
 
   defp build_headers(_request_headers, security_headers, content_type, params) do
-    default_headers = [{"content-type", content_type}]
+    default_headers = %{"content-type" => content_type}
     params.header
-    |> Enum.reduce([], fn
+    |> Enum.reduce(%{}, fn
       _, {:error, _} = err ->
         err
       {_pname, nil}, acc ->
         acc
       {pname, val}, acc ->
-        [{pname, val} | acc]
+        Map.put(acc, pname, val)
     end) |> case do
       {:error, _} = err ->
         err
       new_headers ->
-        {:ok, Enum.concat(default_headers, Enum.concat(new_headers, security_headers))}
+        {:ok, Map.merge(Map.merge(default_headers, new_headers), Enum.into(security_headers, %{}))}
     end
   end
 
   defp build_query(security_query, params) do
     params.query
-    |> Enum.reduce(security_query, fn
+    |> Enum.reduce(Enum.into(security_query, %{}), fn
       _, {:error, _} = err ->
         err
       {_pname, nil}, acc ->
         acc
       {pname, val}, acc ->
-        [{pname, val} | acc]
+        Map.put(acc, pname, val)
     end) |> case do
       {:error, _} = err -> err
       new_query -> {:ok, new_query}
