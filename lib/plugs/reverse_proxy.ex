@@ -37,6 +37,11 @@ defmodule Swagger.Plug.ReverseProxy do
         |> put_resp_content_type("text/plain")
         |> send_resp(400, "missing required parameter '#{param}'")
         |> halt()
+      {:error, {:missing_required_body_parameter, param}} ->
+        conn
+        |> put_resp_content_type("text/plain")
+        |> send_resp(400, "schema violation in body, missing required field '#{param}'")
+        |> halt()
       {:error, {:mismatched_parameter_type, name, val, type}} ->
         conn
         |> put_resp_content_type("text/plain")
@@ -52,12 +57,13 @@ defmodule Swagger.Plug.ReverseProxy do
   defp execute_request(conn, schema, endpoint, operation, params, options) do
     case Swagger.Client.request(conn, schema, endpoint, operation, params, options) do
       {:error, conn, {:client_error, reason}} ->
-        Logger.error "[libswagger_plug] client error: #{reason}"
+        Logger.error "[libswagger_plug] client error: #{inspect reason}"
         conn
         |> put_resp_content_type("text/plain")
         |> send_resp(500, "server error")
         |> halt()
-      {:error, conn, {:remote_request_error, _}} ->
+      {:error, conn, {:remote_request_error, reason}} ->
+        Logger.warn "[libswagger_plug] request error: #{inspect reason}"
         conn
         |> put_resp_content_type("text/plain")
         |> send_resp(500, "server error")
@@ -67,11 +73,17 @@ defmodule Swagger.Plug.ReverseProxy do
         |> put_resp_content_type("text/plain")
         |> send_resp(400, "schema violation: #{inspect reason}")
         |> halt()
+      {:error, reason} ->
+        Logger.error "[libswagger_plug] internal error: #{inspect reason}"
+        conn
+        |> put_resp_content_type("text/plain")
+        |> send_resp(500, "server error")
+        |> halt()
       {:ok, %{state: state} = conn, _req} when state == :sent ->
         halt(conn)
-      {:ok, conn, %{response: resp} = req} ->
+      {:ok, conn, %{response: resp}} ->
         conn
-        |> put_resp_content_type(req.content_type)
+        |> put_resp_content_type(resp.content_type)
         |> send_resp(resp.status, resp.resp_body || "")
     end
   end
@@ -87,9 +99,57 @@ defmodule Swagger.Plug.ReverseProxy do
     Enum.reduce(parameters, {:ok, default}, fn
       _, {:error, _} = err ->
         err
-      {_name, %Parameter.BodyParam{schema: %{"properties" => props}}}, {:ok, acc} ->
-        body = Enum.reduce(props, %{}, fn {name, _}, acc -> Map.put(acc, name, Map.get(values, name)) end)
-        {:ok, put_in(acc, [:body], body)}
+      {_name, %Parameter.BodyParam{name: "body", schema: %{"properties" => props} = schema}}, {:ok, acc} ->
+        required_fields = Map.get(schema, "required", [])
+        body = Enum.reduce(props, %{}, fn 
+          _, {:error, _} = err ->
+            err
+          {pname, _}, acc ->
+            required? = Enum.member?(required_fields, pname)
+            case Map.get(values, pname) do
+              nil when required? -> {:error, {:missing_required_body_parameter, pname}}
+              nil -> acc
+              val -> Map.put(acc, pname, val)
+            end
+        end)
+        case body do
+          {:error, _} = err -> err
+          _ -> {:ok, put_in(acc, [:body], body)}
+        end
+      # Providing a body parameter with a name other than body is technically malformed,
+      # but if it's provided, we'll expect that there is a parameter in the request which matches
+      # the name, and use it's contents to fulfill the parameters spec
+      {_name, %Parameter.BodyParam{name: name, required?: required?, schema: %{"properties" => props} = schema}}, {:ok, acc} ->
+        case Map.get(values, name) do
+          nil when required? -> {:error, {:missing_required_parameter, name}}
+          nil -> {:ok, acc}
+          val when is_map(val) ->
+            required_fields = Map.get(schema, "required", [])
+            body = Enum.reduce(props, %{}, fn 
+              _, {:error, _} = err ->
+                err
+              {pname, _}, acc ->
+                required? = Enum.member?(required_fields, pname)
+                case get_in(values, [name, pname]) do
+                  nil when required? -> {:error, {:missing_required_body_parameter, pname}}
+                  nil -> acc
+                  val -> Map.put(acc, pname, val)
+                end
+            end)
+            case body do
+              {:error, _} = err -> err
+              _ -> {:ok, put_in(acc, [:body], body)}
+            end
+          val ->
+            {:error, {:invalid_parameter_type, "expected object but got #{inspect val}"}}
+        end
+      {_name, %Parameter.BodyParam{name: name, required?: required?}}, {:ok, acc} ->
+        case Map.get(values, name) do
+          nil when required? -> {:error, {:missing_required_parameter, name}}
+          nil -> {:ok, acc}
+          val ->
+            {:ok, put_in(acc, [:body], val)}
+        end
       {name, %{__struct__: type, required?: required?} = p}, {:ok, acc} ->
         case Map.get(values, name) do
           nil when required? -> {:error, {:missing_required_parameter, name}}
