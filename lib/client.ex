@@ -57,7 +57,8 @@ defmodule Swagger.Client do
       {:error, reason, _client} ->
         {:error, conn, {:remote_request_error, reason}}
       {:ok, response} ->
-        response = Map.put(response, :resp_body, Maxwell.Conn.get_resp_body(response))
+        content_type = HTTP.get_response_header(response, "content-type", "text/plain")
+        response = Map.put(%{response | resp_body: Maxwell.Conn.get_resp_body(response)}, :content_type, content_type)
         req = Map.put(req, :response, response)
         case content_type do
           "application/json" ->
@@ -234,7 +235,7 @@ defmodule Swagger.Client do
   defp build_headers(_request_headers, security_headers, content_type, params) do
     default_headers = %{"content-type" => content_type}
     params.header
-    |> Enum.reduce(%{}, fn
+    |> Enum.reduce(default_headers, fn
       _, {:error, _} = err ->
         err
       {_pname, nil}, acc ->
@@ -245,7 +246,7 @@ defmodule Swagger.Client do
       {:error, _} = err ->
         err
       new_headers ->
-        {:ok, Map.merge(Map.merge(default_headers, new_headers), Enum.into(security_headers, %{}))}
+        {:ok, Map.merge(new_headers, Enum.into(security_headers, %{}))}
     end
   end
 

@@ -22,6 +22,13 @@ defmodule Swagger.Client.HTTP do
 	end
   end
 
+  def get_response_header(response, name, default) do
+    case get_resp_header(response, name) do
+      {_name, val} -> val
+      _other -> default
+    end
+  end
+
   def request(method, conn) when is_atom(method) do
     apply(__MODULE__, method, [conn])
   end
