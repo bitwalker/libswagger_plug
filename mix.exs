@@ -21,7 +21,7 @@ defmodule SwaggerPlug.Mixfile do
   defp deps do
     [{:libswagger, github: "bitwalker/libswagger"},
      {:poison, "~> 3.0", override: true},
-     {:maxwell, github: "zhongwencool/maxwell"},
+     {:maxwell, github: "bitwalker/maxwell"},
      {:plug, "~> 1.3"},
      {:cowboy, "~> 1.0", only: [:dev, :test]},
      {:coverex, "~> 1.4", only: [:test]}]
