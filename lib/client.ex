@@ -27,15 +27,15 @@ defmodule Swagger.Client do
               body: body}
       case Keyword.get(options, :preflight) do
         nil -> 
-          dispatch(conn, req, options)
+          dispatch(strip_private(conn), req, options)
         fun when is_function(fun, 2) ->
           case fun.(conn, req) do
             {:ok, %{state: state} = conn, new_req} when state == :sent ->
-              {:ok, conn, new_req}
+              {:ok, strip_private(conn), new_req}
             {:ok, conn, new_req} ->
-              dispatch(conn, new_req, options)
+              dispatch(strip_private(conn), new_req, options)
             {:error, reason} ->
-              {:error, conn, reason}
+              {:error, strip_private(conn), reason}
           end
         other ->
           raise "invalid preflight function, expected /2, got: #{inspect other}"
@@ -43,7 +43,15 @@ defmodule Swagger.Client do
     end
   end
 
-  defp dispatch(conn, %{content_type: content_type} = req, opts) do
+  defp strip_private(conn) do
+    new_private = conn.private
+    |> Map.delete(:libswagger_schema)
+    |> Map.delete(:libswagger_endpoint)
+    |> Map.delete(:libswagger_operation)
+    Map.put(conn, :private, new_private)
+  end
+
+  defp dispatch(conn, req, opts) do
     client = HTTP.create(req)
     case HTTP.request(req.method, client) do
       {:error, reason, _client} ->
